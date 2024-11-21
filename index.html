@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="editors-container">
+    <div class="editor-wrapper">
+        <div class="editor-title">HTML</div>
+        <div class="code-editor">
+            <div class="line-numbers" id="lineNumbers1"></div>
+            <textarea class="code-input" id="codeArea1" spellcheck="false"></textarea>
+        </div>
+    </div>
+
+    <div class="editor-wrapper">
+        <div class="editor-title">MMUL</div>
+        <div class="code-editor">
+            <div class="line-numbers" id="lineNumbers2"></div>
+            <textarea class="code-input" id="codeArea2" spellcheck="false"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+// The complete head template that should match with <base>
+const baseTemplate = `head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About RNF</title`;
+
+// Translation mappings
+const mmulToHtml = {
+    'base': baseTemplate,
+    'fatty1': 'h1',
+    'swag': 'style'
+};
+
+const htmlToMmul = {
+    'h1': 'fatty1',
+    'style': 'swag'
+};
+
+function translateToHTML(mmulCode) {
+    let htmlCode = mmulCode;
+    for (const [mmul, html] of Object.entries(mmulToHtml)) {
+        const mmulRegex = new RegExp(`<${mmul}>`, 'g');
+        const mmulCloseRegex = new RegExp(`</${mmul}>`, 'g');
+        htmlCode = htmlCode.replace(mmulRegex, `<${html}>`);
+        htmlCode = htmlCode.replace(mmulCloseRegex, `</${html.split('>')[0]}>`);
+    }
+    return htmlCode;
+}
+
+function translateToMMUL(htmlCode) {
+    let mmulCode = htmlCode;
+    
+    // Check for the complete base template
+    if (htmlCode.includes(baseTemplate)) {
+        mmulCode = mmulCode.replace(`<${baseTemplate}>`, '<base>');
+        mmulCode = mmulCode.replace('</head>', '</base>');
+    }
+    
+    // Handle other translations
+    for (const [html, mmul] of Object.entries(htmlToMmul)) {
+        const htmlRegex = new RegExp(`<${html}[^>]*>`, 'g');
+        const htmlCloseRegex = new RegExp(`</${html}>`, 'g');
+        mmulCode = mmulCode.replace(htmlRegex, `<${mmul}>`);
+        mmulCode = mmulCode.replace(htmlCloseRegex, `</${mmul}>`);
+    }
+    
+    return mmulCode;
+}
+
+function updateLineNumbers(textareaId, lineNumbersId) {
+    const textarea = document.getElementById(textareaId);
+    const lineNumbers = document.getElementById(lineNumbersId);
+    const lines = textarea.value.split('\n');
+    
+    lineNumbers.innerHTML = '';
+    
+    for (let i = 1; i <= Math.max(1, lines.length); i++) {
+        const lineNumber = document.createElement('div');
+        lineNumber.className = 'line-number';
+        lineNumber.textContent = i;
+        lineNumbers.appendChild(lineNumber);
+    }
+}
+
+const htmlTextarea = document.getElementById('codeArea1');
+const mmulTextarea = document.getElementById('codeArea2');
+
+let isHtmlUpdating = false;
+let isMmulUpdating = false;
+
+htmlTextarea.addEventListener('input', () => {
+    if (!isHtmlUpdating) {
+        isMmulUpdating = true;
+        mmulTextarea.value = translateToMMUL(htmlTextarea.value);
+        updateLineNumbers('codeArea1', 'lineNumbers1');
+        updateLineNumbers('codeArea2', 'lineNumbers2');
+        isMmulUpdating = false;
+    }
+});
+
+mmulTextarea.addEventListener('input', () => {
+    if (!isMmulUpdating) {
+        isHtmlUpdating = true;
+        htmlTextarea.value = translateToHTML(mmulTextarea.value);
+        updateLineNumbers('codeArea1', 'lineNumbers1');
+        updateLineNumbers('codeArea2', 'lineNumbers2');
+        isHtmlUpdating = false;
+    }
+});
+
+// Initialize line numbers
+updateLineNumbers('codeArea1', 'lineNumbers1');
+updateLineNumbers('codeArea2', 'lineNumbers2');
+</script>
+
+</body>
+</html>
