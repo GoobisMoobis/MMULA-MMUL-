@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -24,15 +26,12 @@
 </div>
 
 <script>
-// The complete head template that should match with <base>
-const baseTemplate = `head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About RNF</title`;
+// Base template parts
+const baseDefaultContent = `    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">`;
 
 // Translation mappings
 const mmulToHtml = {
-    'base': baseTemplate,
     'fatty1': 'h1',
     'swag': 'style'
 };
@@ -42,8 +41,27 @@ const htmlToMmul = {
     'style': 'swag'
 };
 
+function getBaseTemplate(title) {
+    return `head>
+${baseDefaultContent}
+    <title>${title}</title`;
+}
+
 function translateToHTML(mmulCode) {
     let htmlCode = mmulCode;
+    
+    // Handle base tag with title attribute
+    const baseTagRegex = /<base(?:\s+title="([^"]*)")?\s*>/;
+    const baseMatch = mmulCode.match(baseTagRegex);
+    
+    if (baseMatch) {
+        const title = baseMatch[1] || window.location.href;
+        const baseTemplate = getBaseTemplate(title);
+        htmlCode = htmlCode.replace(baseTagRegex, `<${baseTemplate}>`);
+        htmlCode = htmlCode.replace('</base>', '</head>');
+    }
+
+    // Handle other translations
     for (const [mmul, html] of Object.entries(mmulToHtml)) {
         const mmulRegex = new RegExp(`<${mmul}>`, 'g');
         const mmulCloseRegex = new RegExp(`</${mmul}>`, 'g');
@@ -56,10 +74,29 @@ function translateToHTML(mmulCode) {
 function translateToMMUL(htmlCode) {
     let mmulCode = htmlCode;
     
-    // Check for the complete base template
-    if (htmlCode.includes(baseTemplate)) {
-        mmulCode = mmulCode.replace(`<${baseTemplate}>`, '<base>');
-        mmulCode = mmulCode.replace('</head>', '</base>');
+    // Handle head tag and its contents
+    const headRegex = /<head>([\s\S]*?)<\/head>/;
+    const headMatch = htmlCode.match(headRegex);
+    
+    if (headMatch) {
+        const headContent = headMatch[1];
+        const titleMatch = headContent.match(/<title>(.*?)<\/title>/);
+        const title = titleMatch ? titleMatch[1] : '';
+        
+        // Check if the head content matches our base structure
+        const baseContentWithoutTitle = baseDefaultContent.replace(/\s+/g, '');
+        const headContentWithoutTitle = headContent.replace(/<title>.*?<\/title>/, '')
+                                                 .replace(/\s+/g, '');
+        
+        if (headContentWithoutTitle.includes(baseContentWithoutTitle)) {
+            // If it's the default website title, don't include the title attribute
+            if (title === window.location.href) {
+                mmulCode = mmulCode.replace(headMatch[0], '<base>');
+            } else {
+                mmulCode = mmulCode.replace(headMatch[0], `<base title="${title}">`);
+            }
+            mmulCode = mmulCode.replace('</head>', '</base>');
+        }
     }
     
     // Handle other translations
