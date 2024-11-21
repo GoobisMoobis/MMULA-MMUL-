@@ -1,0 +1,56 @@
+.editors-container {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px;
+    gap: 20px;
+}
+
+.editor-wrapper {
+    flex: 1;
+}
+
+.editor-title {
+    font-family: Arial, sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.code-editor {
+    display: flex;
+    font-family: monospace;
+    font-size: 14px;
+    border: 1px solid #444;
+}
+
+.line-numbers {
+    padding: 8px;
+    background: #f5f5f5;
+    color: #999;
+    text-align: right;
+    user-select: none;
+    border-right: 1px solid #ddd;
+    min-width: 30px;
+    display: flex;
+    flex-direction: column;
+}
+
+.line-number {
+    padding: 0 5px;
+    height: 21px;
+}
+
+.code-input {
+    flex-grow: 1;
+    margin: 0;
+    padding: 8px;
+    background: #fff;
+    border: none;
+    resize: none;
+    min-height: 300px;
+    white-space: pre;
+    overflow-y: auto;
+    line-height: 21px;
+    font-family: monospace;
+}
