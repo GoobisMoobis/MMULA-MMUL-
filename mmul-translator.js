@@ -5,12 +5,14 @@ const baseDefaultContent = `    <meta charset="UTF-8">
 // Translation mappings
 const mmulToHtml = {
     'fatty1': 'h1',
-    'swag': 'style'
+    'swag': 'style',
+    'js': 'script'
 };
 
 const htmlToMmul = {
     'h1': 'fatty1',
-    'style': 'swag'
+    'style': 'swag',
+    'script': 'js'
 };
 
 function getBaseTemplate(title) {
@@ -22,16 +24,34 @@ ${baseDefaultContent}
 function translateToHTML(mmulCode) {
     let htmlCode = mmulCode;
     
-    // Handle base tag with title attribute
-    const baseTagRegex = /<base(?:\s+title="([^"]*)")?\s*>/;
-    const baseMatch = mmulCode.match(baseTagRegex);
+    // Handle base tag with override type
+    const baseOverrideRegex = /<base\s+type="override"(?:\s+title="([^"]*)")?\s*>/;
+    const baseOverrideMatch = mmulCode.match(baseOverrideRegex);
     
-    if (baseMatch) {
-        const title = baseMatch[1] || window.location.href;
-        const baseTemplate = getBaseTemplate(title);
-        htmlCode = htmlCode.replace(baseTagRegex, `<${baseTemplate}>`);
+    if (baseOverrideMatch) {
+        const title = baseOverrideMatch[1] || window.location.href;
+        htmlCode = htmlCode.replace(baseOverrideRegex, '<head>');
         htmlCode = htmlCode.replace('</base>', '</head>');
+        if (title) {
+            const titleTag = `<title>${title}</title>`;
+            htmlCode = htmlCode.replace('</head>', titleTag + '</head>');
+        }
+    } else {
+        // Handle regular base tag with title attribute
+        const baseTagRegex = /<base(?:\s+title="([^"]*)")?\s*>/;
+        const baseMatch = mmulCode.match(baseTagRegex);
+        
+        if (baseMatch) {
+            const title = baseMatch[1] || window.location.href;
+            const baseTemplate = getBaseTemplate(title);
+            htmlCode = htmlCode.replace(baseTagRegex, `<${baseTemplate}>`);
+            htmlCode = htmlCode.replace('</base>', '</head>');
+        }
     }
+
+    // Handle <html> tag passthrough
+    const htmlTagRegex = /<html>(.*?)<\/html>/gs;
+    htmlCode = htmlCode.replace(htmlTagRegex, '$1');
 
     // Handle other translations
     for (const [mmul, html] of Object.entries(mmulToHtml)) {
@@ -61,14 +81,21 @@ function translateToMMUL(htmlCode) {
                                                  .replace(/\s+/g, '');
         
         if (headContentWithoutTitle.includes(baseContentWithoutTitle)) {
-            // If it's the default website title, don't include the title attribute
+            // Regular base tag
             if (title === window.location.href) {
                 mmulCode = mmulCode.replace(headMatch[0], '<base>');
             } else {
                 mmulCode = mmulCode.replace(headMatch[0], `<base title="${title}">`);
             }
-            mmulCode = mmulCode.replace('</head>', '</base>');
+        } else {
+            // Override base tag
+            if (title) {
+                mmulCode = mmulCode.replace(headMatch[0], `<base type="override" title="${title}">`);
+            } else {
+                mmulCode = mmulCode.replace(headMatch[0], '<base type="override">');
+            }
         }
+        mmulCode = mmulCode.replace('</head>', '</base>');
     }
     
     // Handle other translations
@@ -82,47 +109,40 @@ function translateToMMUL(htmlCode) {
     return mmulCode;
 }
 
-function updateLineNumbers(textareaId, lineNumbersId) {
-    const textarea = document.getElementById(textareaId);
-    const lineNumbers = document.getElementById(lineNumbersId);
-    const lines = textarea.value.split('\n');
-    
-    lineNumbers.innerHTML = '';
-    
-    for (let i = 1; i <= Math.max(1, lines.length); i++) {
-        const lineNumber = document.createElement('div');
-        lineNumber.className = 'line-number';
-        lineNumber.textContent = i;
-        lineNumbers.appendChild(lineNumber);
+// Event handling for translation website
+document.addEventListener('DOMContentLoaded', function() {
+    const mmulInput = document.getElementById('mmulInput');
+    const htmlOutput = document.getElementById('htmlOutput');
+    const lineNumbers1 = document.getElementById('lineNumbers1');
+    const lineNumbers2 = document.getElementById('lineNumbers2');
+
+    function updateLineNumbers(textarea, lineNumbersDiv) {
+        const lines = textarea.value.split('\n').length;
+        lineNumbersDiv.innerHTML = Array(lines).fill(0).map((_, i) => i + 1).join('<br>');
     }
-}
 
-const htmlTextarea = document.getElementById('codeArea1');
-const mmulTextarea = document.getElementById('codeArea2');
-
-let isHtmlUpdating = false;
-let isMmulUpdating = false;
-
-htmlTextarea.addEventListener('input', () => {
-    if (!isHtmlUpdating) {
-        isMmulUpdating = true;
-        mmulTextarea.value = translateToMMUL(htmlTextarea.value);
-        updateLineNumbers('codeArea1', 'lineNumbers1');
-        updateLineNumbers('codeArea2', 'lineNumbers2');
-        isMmulUpdating = false;
+    function syncScroll(textarea, lineNumbersDiv) {
+        lineNumbersDiv.scrollTop = textarea.scrollTop;
     }
-});
 
-mmulTextarea.addEventListener('input', () => {
-    if (!isMmulUpdating) {
-        isHtmlUpdating = true;
-        htmlTextarea.value = translateToHTML(mmulTextarea.value);
-        updateLineNumbers('codeArea1', 'lineNumbers1');
-        updateLineNumbers('codeArea2', 'lineNumbers2');
-        isHtmlUpdating = false;
+    if (mmulInput && htmlOutput) {
+        mmulInput.addEventListener('input', function() {
+            const mmulCode = mmulInput.value;
+            const htmlCode = translateToHTML(mmulCode);
+            htmlOutput.value = htmlCode;
+            updateLineNumbers(mmulInput, lineNumbers1);
+            updateLineNumbers(htmlOutput, lineNumbers2);
+        });
+
+        htmlOutput.addEventListener('input', function() {
+            const htmlCode = htmlOutput.value;
+            const mmulCode = translateToMMUL(htmlCode);
+            mmulInput.value = mmulCode;
+            updateLineNumbers(mmulInput, lineNumbers1);
+            updateLineNumbers(htmlOutput, lineNumbers2);
+        });
+
+        mmulInput.addEventListener('scroll', () => syncScroll(mmulInput, lineNumbers1));
+        htmlOutput.addEventListener('scroll', () => syncScroll(htmlOutput, lineNumbers2));
     }
 });
-
-// Initialize line numbers
-updateLineNumbers('codeArea1', 'lineNumbers1');
-updateLineNumbers('codeArea2', 'lineNumbers2');
