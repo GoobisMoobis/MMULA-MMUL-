@@ -7,6 +7,7 @@ const mmulToHtml = {
     'fatty1': 'h1',
     'swag': 'style',
     'js': 'script'
+    // Add other number mappings here
 };
 
 const htmlToMmul = {
@@ -22,122 +23,110 @@ ${baseDefaultContent}
 }
 
 function translateToHTML(mmulCode) {
-    let htmlCode = mmulCode;
+    // Store HTML sections temporarily
+    const htmlSections = [];
+    let counter = 0;
+    const placeholder = '###HTML_SECTION_';
+    let htmlCode = mmulCode.replace(/<html>([\s\S]*?)<\/html>/g, (match, content) => {
+        htmlSections.push(content);
+        return placeholder + (counter++);
+    });
     
-    // Split the code into sections by HTML tags
-    const parts = htmlCode.split(/(<html>|<\/html>)/);
+    // Handle base tag with override type
+    const baseOverrideRegex = /<base\s+type="override"(?:\s+title="([^"]*)")?\s*>/;
+    const baseOverrideMatch = htmlCode.match(baseOverrideRegex);
     
-    // Process each section
-    for (let i = 0; i < parts.length; i++) {
-        // Skip the actual HTML tags and their content
-        if (parts[i] === '<html>' || parts[i] === '</html>' || 
-            (i > 0 && parts[i-1] === '<html>' && parts[i+1] === '</html>')) {
-            continue;
+    if (baseOverrideMatch) {
+        const title = baseOverrideMatch[1] || window.location.href;
+        htmlCode = htmlCode.replace(baseOverrideRegex, '<head>');
+        htmlCode = htmlCode.replace('</base>', '</head>');
+        if (title) {
+            const titleTag = `<title>${title}</title>`;
+            htmlCode = htmlCode.replace('</head>', titleTag + '</head>');
         }
+    } else {
+        // Handle regular base tag with title attribute
+        const baseTagRegex = /<base(?:\s+title="([^"]*)")?\s*>/;
+        const baseMatch = htmlCode.match(baseTagRegex);
         
-        // Process MMUL sections
-        let section = parts[i];
-        
-        // Handle base tag with override type
-        const baseOverrideRegex = /<base\s+type="override"(?:\s+title="([^"]*)")?\s*>/;
-        const baseOverrideMatch = section.match(baseOverrideRegex);
-        
-        if (baseOverrideMatch) {
-            const title = baseOverrideMatch[1] || window.location.href;
-            section = section.replace(baseOverrideRegex, '<head>');
-            section = section.replace('</base>', '</head>');
-            if (title) {
-                const titleTag = `<title>${title}</title>`;
-                section = section.replace('</head>', titleTag + '</head>');
-            }
-        } else {
-            // Handle regular base tag with title attribute
-            const baseTagRegex = /<base(?:\s+title="([^"]*)")?\s*>/;
-            const baseMatch = section.match(baseTagRegex);
-            
-            if (baseMatch) {
-                const title = baseMatch[1] || window.location.href;
-                const baseTemplate = getBaseTemplate(title);
-                section = section.replace(baseTagRegex, `<${baseTemplate}>`);
-                section = section.replace('</base>', '</head>');
-            }
+        if (baseMatch) {
+            const title = baseMatch[1] || window.location.href;
+            const baseTemplate = getBaseTemplate(title);
+            htmlCode = htmlCode.replace(baseTagRegex, `<${baseTemplate}>`);
+            htmlCode = htmlCode.replace('</base>', '</head>');
         }
+    }
 
-        // Handle other translations
-        for (const [mmul, html] of Object.entries(mmulToHtml)) {
-            const mmulRegex = new RegExp(`<${mmul}>`, 'g');
-            const mmulCloseRegex = new RegExp(`</${mmul}>`, 'g');
-            section = section.replace(mmulRegex, `<${html}>`);
-            section = section.replace(mmulCloseRegex, `</${html.split('>')[0]}>`);
-        }
-        
-        parts[i] = section;
+    // Handle other translations
+    for (const [mmul, html] of Object.entries(mmulToHtml)) {
+        const mmulRegex = new RegExp(`<${mmul}>`, 'g');
+        const mmulCloseRegex = new RegExp(`</${mmul}>`, 'g');
+        htmlCode = htmlCode.replace(mmulRegex, `<${html}>`);
+        htmlCode = htmlCode.replace(mmulCloseRegex, `</${html.split('>')[0]}>`);
+    }
+
+    // Restore HTML sections
+    for (let i = 0; i < htmlSections.length; i++) {
+        htmlCode = htmlCode.replace(placeholder + i, htmlSections[i]);
     }
     
-    // Remove HTML tags and join the parts
-    return parts.filter(part => part !== '<html>' && part !== '</html>').join('');
+    return htmlCode;
 }
 
 function translateToMMUL(htmlCode) {
-    let mmulCode = htmlCode;
+    // Store HTML sections temporarily
+    const htmlSections = [];
+    let counter = 0;
+    const placeholder = '###HTML_SECTION_';
+    let mmulCode = htmlCode.replace(/<html>([\s\S]*?)<\/html>/g, (match, content) => {
+        htmlSections.push(content);
+        return placeholder + (counter++);
+    });
+
+    // Handle head tag and its contents
+    const headRegex = /<head>([\s\S]*?)<\/head>/;
+    const headMatch = mmulCode.match(headRegex);
     
-    // Split the code into sections by HTML tags
-    const parts = mmulCode.split(/(<html>|<\/html>)/);
-    
-    // Process each section
-    for (let i = 0; i < parts.length; i++) {
-        // Skip the actual HTML tags and their content
-        if (parts[i] === '<html>' || parts[i] === '</html>' || 
-            (i > 0 && parts[i-1] === '<html>' && parts[i+1] === '</html>')) {
-            continue;
-        }
+    if (headMatch) {
+        const headContent = headMatch[1];
+        const titleMatch = headContent.match(/<title>(.*?)<\/title>/);
+        const title = titleMatch ? titleMatch[1] : '';
         
-        // Process HTML sections
-        let section = parts[i];
+        // Check if the head content matches our base structure
+        const baseContentWithoutTitle = baseDefaultContent.replace(/\s+/g, '');
+        const headContentWithoutTitle = headContent.replace(/<title>.*?<\/title>/, '')
+                                                 .replace(/\s+/g, '');
         
-        // Handle head tag and its contents
-        const headRegex = /<head>([\s\S]*?)<\/head>/;
-        const headMatch = section.match(headRegex);
-        
-        if (headMatch) {
-            const headContent = headMatch[1];
-            const titleMatch = headContent.match(/<title>(.*?)<\/title>/);
-            const title = titleMatch ? titleMatch[1] : '';
-            
-            // Check if the head content matches our base structure
-            const baseContentWithoutTitle = baseDefaultContent.replace(/\s+/g, '');
-            const headContentWithoutTitle = headContent.replace(/<title>.*?<\/title>/, '')
-                                                     .replace(/\s+/g, '');
-            
-            if (headContentWithoutTitle.includes(baseContentWithoutTitle)) {
-                // Regular base tag
-                if (title === window.location.href) {
-                    section = section.replace(headMatch[0], '<base>');
-                } else {
-                    section = section.replace(headMatch[0], `<base title="${title}">`);
-                }
+        if (headContentWithoutTitle.includes(baseContentWithoutTitle)) {
+            // Regular base tag
+            if (title === window.location.href) {
+                mmulCode = mmulCode.replace(headMatch[0], '<base>');
             } else {
-                // Override base tag
-                if (title) {
-                    section = section.replace(headMatch[0], `<base type="override" title="${title}">`);
-                } else {
-                    section = section.replace(headMatch[0], '<base type="override">');
-                }
+                mmulCode = mmulCode.replace(headMatch[0], `<base title="${title}">`);
             }
-            section = section.replace('</head>', '</base>');
+        } else {
+            // Override base tag
+            if (title) {
+                mmulCode = mmulCode.replace(headMatch[0], `<base type="override" title="${title}">`);
+            } else {
+                mmulCode = mmulCode.replace(headMatch[0], '<base type="override">');
+            }
         }
-        
-        // Handle other translations
-        for (const [html, mmul] of Object.entries(htmlToMmul)) {
-            const htmlRegex = new RegExp(`<${html}[^>]*>`, 'g');
-            const htmlCloseRegex = new RegExp(`</${html}>`, 'g');
-            section = section.replace(htmlRegex, `<${mmul}>`);
-            section = section.replace(htmlCloseRegex, `</${mmul}>`);
-        }
-        
-        parts[i] = section;
+        mmulCode = mmulCode.replace('</head>', '</base>');
     }
     
-    // Remove HTML tags and join the parts
-    return parts.filter(part => part !== '<html>' && part !== '</html>').join('');
+    // Handle other translations
+    for (const [html, mmul] of Object.entries(htmlToMmul)) {
+        const htmlRegex = new RegExp(`<${html}[^>]*>`, 'g');
+        const htmlCloseRegex = new RegExp(`</${html}>`, 'g');
+        mmulCode = mmulCode.replace(htmlRegex, `<${mmul}>`);
+        mmulCode = mmulCode.replace(htmlCloseRegex, `</${mmul}>`);
+    }
+
+    // Restore HTML sections
+    for (let i = 0; i < htmlSections.length; i++) {
+        mmulCode = mmulCode.replace(placeholder + i, htmlSections[i]);
+    }
+    
+    return mmulCode;
 }
