@@ -29,7 +29,7 @@ function translateToHTML(mmulCode) {
     const baseOverrideMatch = mmulCode.match(baseOverrideRegex);
     
     if (baseOverrideMatch) {
-        const title = baseOverrideMatch[1] || document.location.href;
+        const title = baseOverrideMatch[1] || window.location.href;
         htmlCode = htmlCode.replace(baseOverrideRegex, '<head>');
         htmlCode = htmlCode.replace('</base>', '</head>');
         if (title) {
@@ -42,7 +42,7 @@ function translateToHTML(mmulCode) {
         const baseMatch = mmulCode.match(baseTagRegex);
         
         if (baseMatch) {
-            const title = baseMatch[1] || document.location.href;
+            const title = baseMatch[1] || window.location.href;
             const baseTemplate = getBaseTemplate(title);
             htmlCode = htmlCode.replace(baseTagRegex, `<${baseTemplate}>`);
             htmlCode = htmlCode.replace('</base>', '</head>');
@@ -82,7 +82,7 @@ function translateToMMUL(htmlCode) {
         
         if (headContentWithoutTitle.includes(baseContentWithoutTitle)) {
             // Regular base tag
-            if (title === document.location.href) {
+            if (title === window.location.href) {
                 mmulCode = mmulCode.replace(headMatch[0], '<base>');
             } else {
                 mmulCode = mmulCode.replace(headMatch[0], `<base title="${title}">`);
@@ -111,8 +111,8 @@ function translateToMMUL(htmlCode) {
 
 // Event handling for translation website
 document.addEventListener('DOMContentLoaded', function() {
-    const mmulInput = document.getElementById('codeArea2');
     const htmlInput = document.getElementById('codeArea1');
+    const mmulOutput = document.getElementById('codeArea2');
     const lineNumbers1 = document.getElementById('lineNumbers1');
     const lineNumbers2 = document.getElementById('lineNumbers2');
 
@@ -125,32 +125,24 @@ document.addEventListener('DOMContentLoaded', function() {
         lineNumbersDiv.scrollTop = textarea.scrollTop;
     }
 
-    if (mmulInput && htmlInput) {
-        mmulInput.addEventListener('input', function() {
-            const mmulCode = mmulInput.value;
-            try {
-                const htmlCode = translateToHTML(mmulCode);
-                htmlInput.value = htmlCode;
-                updateLineNumbers(mmulInput, lineNumbers2);
-                updateLineNumbers(htmlInput, lineNumbers1);
-            } catch (error) {
-                console.error('Translation error:', error);
-            }
-        });
-
+    if (htmlInput && mmulOutput) {
         htmlInput.addEventListener('input', function() {
             const htmlCode = htmlInput.value;
-            try {
-                const mmulCode = translateToMMUL(htmlCode);
-                mmulInput.value = mmulCode;
-                updateLineNumbers(mmulInput, lineNumbers2);
-                updateLineNumbers(htmlInput, lineNumbers1);
-            } catch (error) {
-                console.error('Translation error:', error);
-            }
+            const mmulCode = translateToMMUL(htmlCode);
+            mmulOutput.value = mmulCode;
+            updateLineNumbers(htmlInput, lineNumbers1);
+            updateLineNumbers(mmulOutput, lineNumbers2);
         });
 
-        mmulInput.addEventListener('scroll', () => syncScroll(mmulInput, lineNumbers2));
+        mmulOutput.addEventListener('input', function() {
+            const mmulCode = mmulOutput.value;
+            const htmlCode = translateToHTML(mmulCode);
+            htmlInput.value = htmlCode;
+            updateLineNumbers(htmlInput, lineNumbers1);
+            updateLineNumbers(mmulOutput, lineNumbers2);
+        });
+
         htmlInput.addEventListener('scroll', () => syncScroll(htmlInput, lineNumbers1));
+        mmulOutput.addEventListener('scroll', () => syncScroll(mmulOutput, lineNumbers2));
     }
 });
